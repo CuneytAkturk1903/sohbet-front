@@ -1,68 +1,100 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>Canlı Sohbet Odası</title>
+    <meta charset="UTF-8">
+    <title>Canlı Sesli ve Yazılı Sohbet</title>
 </head>
 <body>
-  <h1>Canlı Sohbet Odası</h1>
+    <h1>Canlı Sohbet Odası</h1>
 
-  <div>
-    <input id="username" placeholder="Adın" />
-    <button onclick="joinChat()">Lobiye Katıl</button>
-  </div>
+    <input type="text" id="username" placeholder="Adınız...">
+    <button onclick="joinLobby()">Lobiye Katıl</button>
 
-  <div id="chat" style="margin-top:20px; border:1px solid #ccc; height:300px; overflow:auto; padding:10px;">
-    <!-- Mesajlar burada gözükecek -->
-  </div>
+    <div id="chat" style="border: 1px solid black; height: 300px; overflow-y: scroll; margin-top: 10px;"></div>
 
-  <div style="margin-top:10px;">
-    <input id="messageInput" placeholder="Mesaj yazın..." style="width:70%;">
+    <input type="text" id="message" placeholder="Mesaj yazın..." style="width:80%;">
     <button onclick="sendMessage()">Gönder</button>
-  </div>
 
-  <script>
-    let socket;
-    let username = "";
+    <br><br>
 
-    function joinChat() {
-      username = document.getElementById('username').value.trim();
-      if (!username) {
-        alert("Adını yazman lazım!");
-        return;
-      }
+    <button onclick="toggleMic()">🎙️ Mikrofona Başla</button>
 
-      socket = new WebSocket("wss://sohbet-0mf8.onrender.com"); // 🔥 BURASI: SENİN WEBSOCKET SERVER ADRESİN!
+    <script>
+        let socket;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isMicOn = false;
 
-      socket.onopen = () => {
-        console.log('Bağlantı kuruldu');
-        const chat = document.getElementById('chat');
-        const msg = document.createElement('div');
-        msg.innerHTML = `<b>${username}</b> odaya katıldı.`;
-        chat.appendChild(msg);
-      };
+        function joinLobby() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert("İsim gir!");
+                return;
+            }
 
-      socket.onmessage = (event) => {
-        const chat = document.getElementById('chat');
-        const msg = document.createElement('div');
-        msg.textContent = event.data;
-        chat.appendChild(msg);
-        chat.scrollTop = chat.scrollHeight;
-      };
-    }
+            socket = new WebSocket("wss://SENİN-SERVER-URL"); // BURAYA kendi server WebSocket URL'ni yazacaksın.
 
-    function sendMessage() {
-      const input = document.getElementById('messageInput');
-      if (!input.value.trim()) {
-        return;
-      }
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(username + ": " + input.value.trim());
-        input.value = "";
-      } else {
-        alert("Önce lobiye katılmalısın!");
-      }
-    }
-  </script>
+            socket.onopen = () => {
+                console.log("Bağlantı kuruldu");
+            };
+
+            socket.onmessage = (event) => {
+                if (typeof event.data === "string") {
+                    const chat = document.getElementById('chat');
+                    chat.innerHTML += `<div>${event.data}</div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                } else {
+                    const audioBlob = event.data;
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                }
+            };
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('message').value;
+            if (message && socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: "text", message: message }));
+                document.getElementById('message').value = "";
+            }
+        }
+
+        function toggleMic() {
+            if (isMicOn) {
+                stopMic();
+            } else {
+                startMic();
+            }
+        }
+
+        function startMic() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start(300); // Her 300 ms'de bir veri yollayacak
+
+                mediaRecorder.addEventListener("dataavailable", event => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(event.data);
+                    }
+                });
+
+                isMicOn = true;
+            })
+            .catch(err => {
+                console.error('Mikrofon hatası:', err);
+                alert("Mikrofon izni gerekiyor!");
+            });
+        }
+
+        function stopMic() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            isMicOn = false;
+        }
+    </script>
 </body>
 </html>
