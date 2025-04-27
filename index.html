@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Canlı Sohbet Odası</title>
+</head>
+<body>
+  <h1>Canlı Sohbet Odası</h1>
+
+  <div>
+    <input id="username" placeholder="Adın" />
+    <button onclick="joinChat()">Lobiye Katıl</button>
+  </div>
+
+  <div id="chat" style="margin-top:20px; border:1px solid #ccc; height:300px; overflow:auto; padding:10px;">
+    <!-- Mesajlar burada gözükecek -->
+  </div>
+
+  <div style="margin-top:10px;">
+    <input id="messageInput" placeholder="Mesaj yazın..." style="width:70%;">
+    <button onclick="sendMessage()">Gönder</button>
+  </div>
+
+  <script>
+    let socket;
+    let username = "";
+
+    function joinChat() {
+      username = document.getElementById('username').value.trim();
+      if (!username) {
+        alert("Adını yazman lazım!");
+        return;
+      }
+
+      socket = new WebSocket("wss://sohbet-0mf8.onrender.com"); // 🔥 BURASI: SENİN WEBSOCKET SERVER ADRESİN!
+
+      socket.onopen = () => {
+        console.log('Bağlantı kuruldu');
+        const chat = document.getElementById('chat');
+        const msg = document.createElement('div');
+        msg.innerHTML = `<b>${username}</b> odaya katıldı.`;
+        chat.appendChild(msg);
+      };
+
+      socket.onmessage = (event) => {
+        const chat = document.getElementById('chat');
+        const msg = document.createElement('div');
+        msg.textContent = event.data;
+        chat.appendChild(msg);
+        chat.scrollTop = chat.scrollHeight;
+      };
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      if (!input.value.trim()) {
+        return;
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(username + ": " + input.value.trim());
+        input.value = "";
+      } else {
+        alert("Önce lobiye katılmalısın!");
+      }
+    }
+  </script>
+</body>
+</html>
